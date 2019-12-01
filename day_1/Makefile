@@ -6,7 +6,7 @@ CFLAGS_MISC = -std=c++14 -O2
 CFLAGS_WARNINGS = -Wall -Wextra -Wpedantic
 CFLAGS = $(CFLAGS_MISC) $(CFLAGS_WARNINGS)
 LFLAGS = -L.
-IFLAGS = -I.
+IFLAGS = -I. -I../utils
 LIB_DEPS = 
 
 OUT_DIR = build
