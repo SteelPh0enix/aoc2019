@@ -1,4 +1,4 @@
-# Advent of Code 2019
+# Advent of Code 2019: https://adventofcode.com/
 
 i don't have anything better to do this month tbh, guess i can have some fun.
 everything there will be created using C++ (preferably C++14), on my Ubuntu 18.04 WSL (GCC 7.4.0).
