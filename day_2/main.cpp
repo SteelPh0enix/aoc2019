@@ -4,6 +4,8 @@
 #include <iterator>
 #include <vector>
 
+constexpr int SEARCHED_VALUE{19690720};
+
 struct Intcode {
   int opcode;
   int input_positions[2];
@@ -41,18 +43,40 @@ bool executeIntcode(std::vector<int>& data, Intcode const& instruction) {
     }
 
     case 99: {
-      std::cout << "Halt opcode received, exiting...\n";
+      // std::cout << "Halt opcode received, exiting...\n";
       return false;
     }
 
     default: {
-      std::cout << "Unknown opcode " << instruction.opcode
-                << " received, exiting...\n";
+      // std::cout << "Unknown opcode " << instruction.opcode
+                // << " received, exiting...\n";
       return false;
     }
   }
 
   return true;
+}
+
+void setNounAndVerb(std::vector<int>& data, int noun, int verb) {
+  data[1] = noun;
+  data[2] = verb;
+}
+
+// Returns data[0] as output
+int runProgramWithArguments(std::vector<int> data, int noun, int verb) {
+  setNounAndVerb(data, noun, verb);
+
+  auto intcode_iterator = data.begin();
+  Intcode instruction{};
+  do {
+    instruction = readNextIntcode(intcode_iterator);
+  } while (executeIntcode(data, instruction));
+
+  return data[0];
+}
+
+int calculateAnswer(int noun, int verb) {
+  return 100 * noun + verb;
 }
 
 int main() {
@@ -67,18 +91,16 @@ int main() {
   readSeparatedData(input_file, ',', std::back_inserter(data),
                     [](std::string const& s) { return std::stoi(s); });
 
-  data[1] = 12;
-  data[2] = 2;
+  int noun{0}, verb{0};
 
-  auto intcode_iterator = data.begin();
-  Intcode instruction{};
-  do {
-    instruction = readNextIntcode(intcode_iterator);
-  } while (executeIntcode(data, instruction));
-
-  std::cout << "Finished state: ";
-  for(auto e: data) {
-    std::cout << e << ' ';
+  while(runProgramWithArguments(data, noun, verb) != SEARCHED_VALUE) {
+    verb++;
+    if (verb >= 100) {
+      noun++;
+      verb = 0;
+    }
   }
-  std::cout << std::endl;
+
+  std::cout << "Found verb, noun pair: {" << verb << ", " << noun << "}\n";
+  std::cout << "The answer is " << calculateAnswer(noun, verb) << "!\n";
 }
