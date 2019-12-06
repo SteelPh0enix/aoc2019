@@ -32,11 +32,39 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+struct Point {
+  int x{}, y{};
+
+  bool operator==(Point const& second) const {
+    return x == second.x && y == second.y;
+  }
+};
+
+// Custom std::hash specialisation copied from cppreference :^)
+namespace std {
+  template<> struct hash<Point> {
+    std::size_t operator()(Point const& point) const noexcept {
+      std::size_t hash_x = std::hash<int>{}(point.x);
+      std::size_t hash_y = std::hash<int>{}(point.y);
+      return hash_x ^ (hash_y << 1);
+    }
+  };
+}
+
+using LinesMap = std::unordered_map<Point, int>;
+using MoveFunc = Point (*)(Point);
+
 struct PathVector {
-  enum class Direction : char { Left = 'L', Right = 'R', Up = 'U', Down = 'D' } direction;
-  unsigned long length;
+  enum class Direction : char {
+    Left = 'L',
+    Right = 'R',
+    Up = 'U',
+    Down = 'D'
+  } direction{};
+  unsigned long length{};
 
   PathVector(std::string const& str) {
     if (str.length() >= 2) {
@@ -44,8 +72,39 @@ struct PathVector {
       length = std::strtoul(&str[1], nullptr, 10);
     }
   }
-
 };
+
+Point moveLeft(Point origin) {
+  return {origin.x - 1, origin.y};
+}
+
+Point moveRight(Point origin) {
+  return {origin.x + 1, origin.y};
+}
+
+Point moveUp(Point origin) {
+  return {origin.x, origin.y + 1};
+}
+
+Point moveDown(Point origin) {
+  return {origin.x, origin.y - 1};
+}
+
+MoveFunc getMoveFuncForDirection(PathVector::Direction direction) {
+  using Dir = PathVector::Direction;
+  switch (direction) {
+    case Dir::Left:
+      return moveLeft;
+    case Dir::Right:
+      return moveRight;
+    case Dir::Up:
+      return moveUp;
+    case Dir::Down:
+      return moveDown;
+    default:
+      return [](Point p) { return p; };
+  }
+}
 
 std::vector<PathVector> parsePathInput(std::istream& input) {
   std::vector<PathVector> paths;
@@ -78,14 +137,27 @@ std::vector<std::vector<PathVector>> parseInputData(
   return paths;
 }
 
+void drawPathOnMap(LinesMap& map, std::vector<PathVector> const& vectors) {
+  Point origin{0, 0};
+  map[origin]++;
+
+  std::cout << "Drawing from " << origin.x << ", " << origin.y << "\n";
+
+  for (auto const& vec : vectors) {
+    auto move = getMoveFuncForDirection(vec.direction);
+    for (unsigned i = 0; i < vec.length; i++) {
+      origin = move(origin);
+      map[origin]++;
+      std::cout << "Point " << origin.x << ", " << origin.y << " drawed " << map[origin] << " times\n";
+    }
+  }
+
+  std::cout << "Point amount: " << map.size() << '\n';
+}
+
 int main() {
   auto paths = parseInputData("input.txt");
+  LinesMap map{};
 
-  for (auto const& path: paths) {
-    std::cout << "Path: ";
-    for (auto const& vec: path) {
-      std::cout << static_cast<char>(vec.direction) << " " << vec.length << ", ";
-    }
-    std::cout << "\n\n";
-  }
+  drawPathOnMap(map, paths[0]);
 }
