@@ -7,7 +7,7 @@
 #include <numeric>
 #include <string>
 #include <vector>
-#include "file_reader.hpp"
+#include <data_reader.hpp>
 
 using WeightT = std::int64_t;
 

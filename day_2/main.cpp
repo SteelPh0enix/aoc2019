@@ -1,4 +1,4 @@
-#include <file_reader.hpp>
+#include <data_reader.hpp>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -49,7 +49,7 @@ bool executeIntcode(std::vector<int>& data, Intcode const& instruction) {
 
     default: {
       // std::cout << "Unknown opcode " << instruction.opcode
-                // << " received, exiting...\n";
+      // << " received, exiting...\n";
       return false;
     }
   }
@@ -93,7 +93,7 @@ int main() {
 
   int noun{0}, verb{0};
 
-  while(runProgramWithArguments(data, noun, verb) != SEARCHED_VALUE) {
+  while (runProgramWithArguments(data, noun, verb) != SEARCHED_VALUE) {
     verb++;
     if (verb >= 100) {
       noun++;
