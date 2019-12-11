@@ -25,37 +25,53 @@
       pretty much linear
 */
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <data_reader.hpp>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-struct Point {
+template <std::size_t N>
+struct Intersection {
   int x{}, y{};
+  std::array<unsigned, N> line_distances{};
 
-  bool operator==(Point const& second) const {
+  unsigned manhattanDistanceFromOrigin() const {
+    return static_cast<unsigned>(std::abs(x) + std::abs(y));
+  }
+
+  unsigned combinedLinesLength() const {
+    return std::accumulate(line_distances.cbegin(), line_distances.cend(), 1u);
+  }
+
+  bool operator==(Intersection const& second) const {
     return x == second.x && y == second.y;
   }
 };
 
-// Custom std::hash specialisation copied from cppreference :^)
-namespace std {
-  template<> struct hash<Point> {
-    std::size_t operator()(Point const& point) const noexcept {
-      std::size_t hash_x = std::hash<int>{}(point.x);
-      std::size_t hash_y = std::hash<int>{}(point.y);
-      return hash_x ^ (hash_y << 1);
-    }
-  };
-}
+template <std::size_t N>
+struct IntersectionHasher {
+  std::size_t operator()(Intersection<N> const& val) const noexcept {
+    std::size_t h1 = std::hash<int>{}(val.x);
+    std::size_t h2 = std::hash<int>{}(val.y);
+    return h1 ^ (h2 << 1);
+  }
+};
 
-using LinesMap = std::unordered_map<Point, int>;
-using MoveFunc = Point (*)(Point);
+template <std::size_t N>
+using LinesMap =
+    std::unordered_map<Intersection<N>, int, IntersectionHasher<N>>;
+
+template <std::size_t N>
+using MoveFunc = Intersection<N> (*)(Intersection<N>);
 
 struct PathVector {
   enum class Direction : char {
@@ -74,23 +90,28 @@ struct PathVector {
   }
 };
 
-Point moveLeft(Point origin) {
+template <std::size_t N>
+Intersection<N> moveLeft(Intersection<N> origin) {
   return {origin.x - 1, origin.y};
 }
 
-Point moveRight(Point origin) {
+template <std::size_t N>
+Intersection<N> moveRight(Intersection<N> origin) {
   return {origin.x + 1, origin.y};
 }
 
-Point moveUp(Point origin) {
+template <std::size_t N>
+Intersection<N> moveUp(Intersection<N> origin) {
   return {origin.x, origin.y + 1};
 }
 
-Point moveDown(Point origin) {
+template <std::size_t N>
+Intersection<N> moveDown(Intersection<N> origin) {
   return {origin.x, origin.y - 1};
 }
 
-MoveFunc getMoveFuncForDirection(PathVector::Direction direction) {
+template <std::size_t N>
+MoveFunc<N> getMoveFuncForDirection(PathVector::Direction direction) {
   using Dir = PathVector::Direction;
   switch (direction) {
     case Dir::Left:
@@ -102,7 +123,7 @@ MoveFunc getMoveFuncForDirection(PathVector::Direction direction) {
     case Dir::Down:
       return moveDown;
     default:
-      return [](Point p) { return p; };
+      return [](Intersection<N> p) { return p; };
   }
 }
 
@@ -137,27 +158,77 @@ std::vector<std::vector<PathVector>> parseInputData(
   return paths;
 }
 
-void drawPathOnMap(LinesMap& map, std::vector<PathVector> const& vectors) {
-  Point origin{0, 0};
+template <std::size_t N>
+void drawPathOnMap(LinesMap<N>& map,
+                   std::vector<PathVector> const& vectors,
+                   std::size_t line_number) {
+  Intersection<N> origin{0, 0};
   map[origin]++;
-
-  std::cout << "Drawing from " << origin.x << ", " << origin.y << "\n";
+  unsigned line_length{0};
 
   for (auto const& vec : vectors) {
-    auto move = getMoveFuncForDirection(vec.direction);
+    auto move = getMoveFuncForDirection<N>(vec.direction);
     for (unsigned i = 0; i < vec.length; i++) {
       origin = move(origin);
+      origin.line_distances[line_number] = line_length++;
       map[origin]++;
-      std::cout << "Point " << origin.x << ", " << origin.y << " drawed " << map[origin] << " times\n";
     }
   }
 
-  std::cout << "Point amount: " << map.size() << '\n';
+  std::cout << "Intersections amount: " << map.size() << '\n';
+}
+
+template <std::size_t N>
+std::vector<Intersection<N>> getAllCrossings(
+    LinesMap<N> const& map,
+    std::vector<PathVector> const& vectors,
+    std::size_t line_number) {
+  std::vector<Intersection<N>> points{};
+  Intersection<N> origin{0, 0};
+  unsigned line_length{0};
+
+  for (auto const& vec : vectors) {
+    auto move = getMoveFuncForDirection<N>(vec.direction);
+    for (unsigned i = 0; i < vec.length; i++) {
+      origin = move(origin);
+      line_length++;
+      auto intersection = map.find(origin);
+      if (intersection != map.cend()) {
+        auto intersection_copy = (*intersection).first;
+        intersection_copy.line_distances[line_number] = line_length;
+        points.push_back(intersection_copy);
+      }
+    }
+  }
+
+  return points;
 }
 
 int main() {
   auto paths = parseInputData("input.txt");
-  LinesMap map{};
+  LinesMap<2> map{};
 
-  drawPathOnMap(map, paths[0]);
+  drawPathOnMap(map, paths[0], 0);
+  auto crossings = getAllCrossings(map, paths[1], 1);
+  std::sort(crossings.begin(), crossings.end(),
+            [](auto const& first, auto const& second) {
+              return first.manhattanDistanceFromOrigin() <
+                     second.manhattanDistanceFromOrigin();
+            });
+
+  std::cout << "Nearest crossing: (" << crossings[0].x << ", " << crossings[0].y
+            << "), with distance " << crossings[0].manhattanDistanceFromOrigin()
+            << " and wires length " << crossings[0].combinedLinesLength()
+            << "\n";
+
+  std::sort(crossings.begin(), crossings.end(),
+            [](auto const& first, auto const& second) {
+              return first.combinedLinesLength() < second.combinedLinesLength();
+            });
+
+  std::cout << "Shortest crossing: (" << crossings[0].x << ", "
+            << crossings[0].y << "), with distance "
+            << crossings[0].manhattanDistanceFromOrigin()
+            << " and wires length " << crossings[0].combinedLinesLength()
+            << "\n";
 }
